@@ -1,0 +1,21 @@
+# Eclipse
+.cache
+.classpath
+.project
+.settings
+
+# IntelliJ
+.idea
+*.iml
+
+#OSX
+.DS_Store
+
+# SBT
+target
+gatling-pro.mv.db
+
+# Conf
+*.conf
+!application.conf
+!*-defaults.conf

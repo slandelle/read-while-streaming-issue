@@ -3,7 +3,6 @@ package io.gatling;
 import static io.netty.handler.codec.http.HttpHeaderNames.*;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelPipeline;
@@ -19,7 +18,6 @@ import io.netty.handler.stream.ChunkedFile;
 import io.netty.handler.stream.ChunkedNioFile;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
 
 import java.io.File;
 import java.io.IOException;
@@ -98,11 +96,9 @@ public class UploadTest {
 
         CompletableFuture<HttpResponseStatus> result = new CompletableFuture<>();
 
-        nettyClient.connect(9999).addListener(new ChannelFutureListener() {
-            @Override
-            public void operationComplete(ChannelFuture f) throws Exception {
-                if (f.isSuccess()) {
-                    Channel channel = f.channel();
+        nettyClient.connect(port).addListener((ChannelFuture whenConnect) -> {
+                if (whenConnect.isSuccess()) {
+                    Channel channel = whenConnect.channel();
 
                     addHander(channel.pipeline(), result);
 
@@ -111,20 +107,16 @@ public class UploadTest {
                             .set(CONTENT_LENGTH, FILE.length())//
                             .set(HOST, "localhost");
 
-                    f.channel().write(request);
-                    f.channel().write(bodyGenerator.apply(FILE)).addListener(new GenericFutureListener<Future<? super Void>>() {
-                        @Override
-                        public void operationComplete(Future<? super Void> f) throws Exception {
-                            if (f.cause() != null) {
-                                result.completeExceptionally(f.cause());
+                    whenConnect.channel().write(request);
+                    whenConnect.channel().write(bodyGenerator.apply(FILE)).addListener((Future<? super Void> whenWrite) -> {
+                            if (whenWrite.cause() != null) {
+                                result.completeExceptionally(whenWrite.cause());
                             }
-                        }
                     });
-                    f.channel().writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, f.channel().voidPromise());
+                    whenConnect.channel().writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, whenConnect.channel().voidPromise());
                 } else {
-                    result.completeExceptionally(f.cause());
+                    result.completeExceptionally(whenConnect.cause());
                 }
-            }
         });
 
         return result.get(10, TimeUnit.SECONDS);
